@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF转图片示例</title>
+  <style>
+    #fileInput::file-selector-button {
+      cursor: pointer;
+      border: 2px solid #555555;
+      color: #555555;
+      padding: 8px;
+      border-radius: 4px;
+      background-color: #ffffff;
+    }
+
+    #fileInput::file-selector-button:hover {
+      background-color: #e9e9e9;
+    }
+
+    #fileInput::-webkit-file-upload-button {
+      border: 2px solid #555555;
+      color: #555555;
+      padding: 8px;
+      border-radius: 4px;
+      background-color: #ffffff;
+    }
+
+    #fileInput::-webkit-file-upload-button:hover {
+      background-color: #e9e9e9;
+    }
+
+    .page-image {
+      margin: 10px 0;
+      max-width: 100%;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+
+<body>
+  <h1>PDF转图片</h1>
+  <div style="margin-bottom: 20px;">
+    <input type="file" id="fileInput" accept=".pdf" name="avatar" title="选择 pdf 文件" style="width: 100%" />
+  </div>
+  <div id="output"></div>
+  <script src="/pdf.js"></script>
+</body>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
+
+  async function loadPDFFile(loadingTask) {
+    const outputDiv = document.getElementById('output');
+    outputDiv.innerHTML = ''; // 清空之前的内容
+
+    const pdf = await loadingTask.promise;
+    console.log('pdf页数: ', pdf.numPages);
+
+    for (let curPage = 1; curPage <= pdf.numPages; curPage++) {
+      console.log('正在处理第', curPage, '页');
+      const page = await pdf.getPage(curPage);
+
+      const scale = 1.5;
+      const viewport = page.getViewport({ scale });
+
+      // 创建canvas元素
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      // 设置canvas尺寸
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      // 渲染PDF页面到canvas
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
+
+      await page.render(renderContext).promise;
+
+      // 将canvas转换为图片
+      const image = new Image();
+      image.src = canvas.toDataURL('image/png');
+      image.className = 'page-image';
+      image.style.width = '100%';
+      image.style.height = 'auto';
+
+      // 添加页码标识
+      const pageDiv = document.createElement('div');
+      pageDiv.style.marginBottom = '20px';
+      pageDiv.innerHTML = `<p style="margin: 5px 0">第 ${curPage} 页</p>`;
+      pageDiv.appendChild(image);
+
+      outputDiv.appendChild(pageDiv);
+    }
+  }
+
+  const fileInput = document.getElementById('fileInput');
+  fileInput.addEventListener(
+    "change",
+    () => {
+      const file = fileInput.files[0];
+      console.log('选择的文件: ', file);
+      var fileReader = new FileReader();
+      fileReader.onload = function () {
+        var typedarray = new Uint8Array(this.result);
+        const loadingTask = pdfjsLib.getDocument(typedarray);
+        loadPDFFile(loadingTask);
+      };
+
+      fileReader.readAsArrayBuffer(file);
+    },
+    false
+  );
+
+</script>
+
+</html>
